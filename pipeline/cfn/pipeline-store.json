@@ -67,6 +67,16 @@
       "Default":"EMPTY",
       "Description":"A stack name reference to dynamodb.json"
     },
+    "ConfigStackName":{
+      "Type":"String",
+      "Default":"EMPTY",
+      "Description":"ConfigStackName"
+    },
+    "LambdaConfigStackName":{
+      "Type":"String",
+      "Default":"EMPTY",
+      "Description":"LambdaConfigStackName"
+    },
     "ENIStackName":{
       "Type":"String",
       "Default":"EMPTY",
@@ -183,6 +193,18 @@
       "Description":"A stack name reference to app-eni.json",
       "Value":{
         "Ref":"ENIStackName"
+      }
+    },
+    "ConfigStackName":{
+      "Description":"TBD",
+      "Value":{
+        "Ref":"ConfigStackName"
+      }
+    },
+    "LambdaConfigStackName":{
+      "Description":"TBD",
+      "Value":{
+        "Ref":"LambdaConfigStackName"
       }
     },
     "DromedaryAppURL":{

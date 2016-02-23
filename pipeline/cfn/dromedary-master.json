@@ -1,4 +1,4 @@
-{
+ {
   "AWSTemplateFormatVersion":"2010-09-09",
   "Description":"Master dromedary stack that calls nested stacks",
   "Parameters":{
@@ -66,6 +66,21 @@
       "Type":"String",
       "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
       "Default":"dynamodb.json"
+    },
+    "ConfigCFNTemplateFile":{
+      "Type":"String",
+      "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
+      "Default":"config.json"
+    },
+    "LambdaConfigCFNTemplateFile":{
+      "Type":"String",
+      "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
+      "Default":"lambda-config.json"
+    },
+    "pCloudFrontCFNTemplateFile":{
+      "Type":"String",
+      "Description":"Just the name of the CloudFormation template. Used with BaseTemplateURL.",
+      "Default":"cloudfront-cfn.json"
     },
     "DDBTableName":{
       "Type":"String",
@@ -155,6 +170,14 @@
       "Default":"0.0.0.0/0",
       "AllowedPattern":"(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
       "ConstraintDescription":"must be a valid IP CIDR range of the form x.x.x.x/x."
+    },
+    "pEnableCloudFrontAndWaf": {
+      "Type":"String",
+      "Default": "false"
+    },
+    "pEnableConfig": {
+      "Type":"String",
+      "Default": "true"
     }
   },
   "Mappings":{
@@ -654,6 +677,12 @@
       }
     }
   },
+
+  "Conditions" : {
+    "cEnableCloudFrontAndWaf" : {"Fn::Equals" : [{"Ref" : "pEnableCloudFrontAndWaf"}, "true"]},
+    "cEnableConfig" : {"Fn::Equals" : [{"Ref" : "pEnableConfig"}, "true"]}
+  },
+
   "Resources":{
     "LogRole":{
       "Type":"AWS::IAM::Role",
@@ -720,7 +749,8 @@
       "Type":"AWS::EC2::Instance",
       "DependsOn":[
         "DynamoDBStack",
-        "PipelineStoreStack"
+        "PipelineStoreStack",
+        "VPCStack"
       ],
       "Metadata":{
         "AWS::CloudFormation::Init":{
@@ -959,9 +989,22 @@
         }
       },
       "Properties":{
-        "SecurityGroups":[
+        "NetworkInterfaces": [
           {
-            "Ref":"InstanceSecurityGroup"
+             "AssociatePublicIpAddress" : true,
+             "DeleteOnTermination" : true,
+             "DeviceIndex" : "0",
+             "GroupSet": [
+               {
+                 "Ref":"InstanceSecurityGroup"
+               }
+             ],
+             "SubnetId" : {
+               "Fn::GetAtt": [
+                 "VPCStack",
+                 "Outputs.SubnetId"
+               ]
+             }
           }
         ],
         "KeyName":{
@@ -1086,6 +1129,12 @@
     "InstanceSecurityGroup":{
       "Type":"AWS::EC2::SecurityGroup",
       "Properties":{
+        "VpcId": {
+          "Fn::GetAtt": [
+            "VPCStack",
+            "Outputs.VPC"
+          ]
+        },
         "GroupDescription":"Enable SSH access and HTTP access on the inbound port",
         "SecurityGroupIngress":[
           {
@@ -1270,6 +1319,30 @@
               "ENIStack",
               "Outputs.StackName"
             ]
+          },
+          "ConfigStackName":{
+            "Fn::If" : [
+              "cEnableConfig",
+              {
+                "Fn::GetAtt": [
+                  "ConfigStack",
+                  "Outputs.StackName"
+                ]
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]
+          },
+          "LambdaConfigStackName":{
+            "Fn::If" : [
+              "cEnableConfig",
+              {
+                "Fn::GetAtt": [
+                  "LambdaConfigStack",
+                  "Outputs.StackName"
+                ]
+              },
+              { "Ref" : "AWS::NoValue" }
+            ]
           }
         }
       }
@@ -1283,6 +1356,20 @@
         "PipelineStoreStack",
         "WebServerInstance"
       ],
+      "Metadata": {
+        "conditionalOrderingHack" : {
+          "Fn::If" : [
+            "cEnableConfig",
+            {
+              "Fn::GetAtt": [
+                "LambdaConfigStack",
+                "Outputs.StackName"
+              ]
+            },
+            "dontcare"
+          ]
+        }
+      },
       "Properties":{
         "TemplateURL":{
           "Fn::Join":[
@@ -1430,6 +1517,83 @@
               "IAMStack",
               "Outputs.CodePipelineTrustRoleARN"
             ]
+          }
+        }
+      }
+    },
+    "ConfigStack": {
+      "Type":"AWS::CloudFormation::Stack",
+      "DependsOn":[
+      ],
+      "Condition": "cEnableConfig",
+      "Properties":{
+        "TemplateURL":{
+          "Fn::Join":[
+            "",
+            [
+              {
+                "Ref":"BaseTemplateURL"
+              },
+              {
+                "Ref":"ConfigCFNTemplateFile"
+              }
+            ]
+          ]
+        },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+
+        }
+      }
+    },
+    "LambdaConfigStack": {
+      "Type":"AWS::CloudFormation::Stack",
+      "DependsOn":[
+        "ConfigStack"
+      ],
+      "Condition": "cEnableConfig",
+      "Properties":{
+        "TemplateURL":{
+          "Fn::Join":[
+            "",
+            [
+              {
+                "Ref":"BaseTemplateURL"
+              },
+              {
+                "Ref":"LambdaConfigCFNTemplateFile"
+              }
+            ]
+          ]
+        },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+
+        }
+      }
+    },
+    "rCloudFrontStack": {
+      "Type":"AWS::CloudFormation::Stack",
+      "Condition": "cEnableCloudFrontAndWaf",
+      "Properties":{
+        "TemplateURL":{
+          "Fn::Join":[
+            "",
+            [
+              {
+                "Ref":"BaseTemplateURL"
+              },
+              {
+                "Ref":"pCloudFrontCFNTemplateFile"
+              }
+            ]
+          ]
+        },
+        "TimeoutInMinutes":"60",
+        "Parameters":{
+
+          "pDistributionDomainName":{
+            "Ref":"Domain"
           }
         }
       }

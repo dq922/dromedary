@@ -207,7 +207,7 @@
                     "Name":"DromedaryCreate"
                   }
                 ],
-                "Name":"AcceptanceTest",
+                "Name":"PenTest",
                 "ActionTypeId":{
                   "Category":"Test",
                   "Owner":"Custom",
@@ -218,11 +218,11 @@
                 },
                 "OutputArtifacts":[
                   {
-                    "Name":"DromedaryAccepted"
+                    "Name":"DromedaryPenTest"
                   }
                 ],
                 "Configuration":{
-                  "ProjectName":"drom-acceptance-test"
+                  "ProjectName":"drom-pen-test"
                 },
                 "RunOrder":2
               },
@@ -250,31 +250,6 @@
                   "ProjectName":"drom-infra-test"
                 },
                 "RunOrder":2
-              },
-              {
-                "InputArtifacts":[
-                  {
-                    "Name":"DromedaryCreate"
-                  }
-                ],
-                "Name":"SecurityIntegrationTest",
-                "ActionTypeId":{
-                  "Category":"Test",
-                  "Owner":"Custom",
-                  "Version":"1",
-                  "Provider":{
-                    "Ref":"MyBuildProvider"
-                  }
-                },
-                "OutputArtifacts":[
-                  {
-                    "Name":"DromedarySecure"
-                  }
-                ],
-                "Configuration":{
-                  "ProjectName":"drom-sec-int-test"
-                },
-                "RunOrder":3
               }
             ]
           },
@@ -284,7 +259,7 @@
               {
                 "InputArtifacts":[
                   {
-                    "Name":"DromedaryAccepted"
+                    "Name":"DromedaryPenTest"
                   }
                 ],
                 "Name":"PromoteEnvironment",
@@ -320,23 +295,6 @@
     "StackName":{
       "Value":{
         "Ref":"AWS::StackName"
-      }
-    },
-    "CodePipelineURL":{
-      "Value":{
-        "Fn::Join":[
-          "",
-          [
-            "https://console.aws.amazon.com/codepipeline/home?region=",
-            {
-              "Ref":"AWS::Region"
-            },
-            "#/view/",
-            {
-              "Ref":"AppPipeline"
-            }
-          ]
-        ]
       }
     }
   }
